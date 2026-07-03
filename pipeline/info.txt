@@ -1,0 +1,5 @@
+selected resource name:		pipeline1
+selected resource type:		pipeline
+factory name:			mypipeline02072026
+factory location:		eastus
+time of download (UTC):		Fri, 03 Jul 2026 18:51:40 GMT

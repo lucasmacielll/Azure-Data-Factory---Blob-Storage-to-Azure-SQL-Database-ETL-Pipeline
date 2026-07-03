@@ -1,0 +1,29 @@
+{
+    "name": "AzureSqlTable1",
+    "properties": {
+        "linkedServiceName": {
+            "referenceName": "AzureSqlDatabase1",
+            "type": "LinkedServiceReference"
+        },
+        "annotations": [],
+        "type": "AzureSqlTable",
+        "schema": [
+            {
+                "name": "Name",
+                "type": "varchar"
+            },
+            {
+                "name": "HEX",
+                "type": "varchar"
+            },
+            {
+                "name": "RGB",
+                "type": "varchar"
+            }
+        ],
+        "typeProperties": {
+            "schema": "dbo",
+            "table": "Colors"
+        }
+    }
+}
