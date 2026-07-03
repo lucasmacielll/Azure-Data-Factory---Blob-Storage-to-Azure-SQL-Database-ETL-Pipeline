@@ -1,0 +1,199 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "factoryName": {
+            "type": "string",
+            "metadata": {
+                "description": "Azure Data Factory name"
+            },
+            "defaultValue": "sample-datafactory"
+        },
+        "AzureBlobStorage_connectionString": {
+            "type": "secureString",
+            "metadata": {
+                "description": "Azure Blob Storage connection string"
+            }
+        },
+        "AzureSqlDatabase_server": {
+            "type": "string",
+            "defaultValue": "sample-sql-server.database.windows.net"
+        },
+        "AzureSqlDatabase_database": {
+            "type": "string",
+            "defaultValue": "sample-database"
+        }
+    },
+    "variables": {
+        "factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+    },
+    "resources": [
+        {
+            "name": "[concat(parameters('factoryName'), '/AzureBlobStorage')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "type": "AzureBlobStorage",
+                "annotations": [],
+                "typeProperties": {
+                    "connectionString": "[parameters('AzureBlobStorage_connectionString')]"
+                }
+            }
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/CsvDataset')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/AzureBlobStorage')]"
+            ],
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "AzureBlobStorage",
+                    "type": "LinkedServiceReference"
+                },
+                "type": "DelimitedText",
+                "annotations": [],
+                "typeProperties": {
+                    "location": {
+                        "type": "AzureBlobStorageLocation",
+                        "container": "sample-container",
+                        "fileName": "colors.csv"
+                    },
+                    "columnDelimiter": ",",
+                    "escapeChar": "\\",
+                    "firstRowAsHeader": true,
+                    "quoteChar": "\""
+                },
+                "schema": [
+                    {
+                        "name": "Name",
+                        "type": "String"
+                    },
+                    {
+                        "name": "HEX",
+                        "type": "String"
+                    },
+                    {
+                        "name": "RGB",
+                        "type": "String"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/AzureSqlDatabase')]",
+            "type": "Microsoft.DataFactory/factories/linkedServices",
+            "apiVersion": "2018-06-01",
+            "properties": {
+                "type": "AzureSqlDatabase",
+                "annotations": [],
+                "typeProperties": {
+                    "server": "[parameters('AzureSqlDatabase_server')]",
+                    "database": "[parameters('AzureSqlDatabase_database')]",
+                    "encrypt": "mandatory",
+                    "trustServerCertificate": false,
+                    "authenticationType": "SystemAssignedManagedIdentity"
+                }
+            }
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/AzureSqlTable')]",
+            "type": "Microsoft.DataFactory/factories/datasets",
+            "apiVersion": "2018-06-01",
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/linkedServices/AzureSqlDatabase')]"
+            ],
+            "properties": {
+                "linkedServiceName": {
+                    "referenceName": "AzureSqlDatabase",
+                    "type": "LinkedServiceReference"
+                },
+                "type": "AzureSqlTable",
+                "annotations": [],
+                "schema": [
+                    {
+                        "name": "Name",
+                        "type": "varchar"
+                    },
+                    {
+                        "name": "HEX",
+                        "type": "varchar"
+                    },
+                    {
+                        "name": "RGB",
+                        "type": "varchar"
+                    }
+                ],
+                "typeProperties": {
+                    "schema": "dbo",
+                    "table": "Colors"
+                }
+            }
+        },
+        {
+            "name": "[concat(parameters('factoryName'), '/BlobToSqlPipeline')]",
+            "type": "Microsoft.DataFactory/factories/pipelines",
+            "apiVersion": "2018-06-01",
+            "dependsOn": [
+                "[concat(variables('factoryId'), '/datasets/CsvDataset')]",
+                "[concat(variables('factoryId'), '/datasets/AzureSqlTable')]"
+            ],
+            "properties": {
+                "annotations": [],
+                "activities": [
+                    {
+                        "name": "CopyBlobToSql",
+                        "type": "Copy",
+                        "policy": {
+                            "timeout": "0.12:00:00",
+                            "retry": 0,
+                            "retryIntervalInSeconds": 30,
+                            "secureInput": false,
+                            "secureOutput": false
+                        },
+                        "typeProperties": {
+                            "source": {
+                                "type": "DelimitedTextSource",
+                                "storeSettings": {
+                                    "type": "AzureBlobStorageReadSettings",
+                                    "recursive": true,
+                                    "enablePartitionDiscovery": false
+                                },
+                                "formatSettings": {
+                                    "type": "DelimitedTextReadSettings"
+                                }
+                            },
+                            "sink": {
+                                "type": "AzureSqlSink",
+                                "writeBehavior": "insert",
+                                "sqlWriterUseTableLock": false
+                            },
+                            "enableStaging": false,
+                            "translator": {
+                                "type": "TabularTranslator",
+                                "typeConversion": true,
+                                "typeConversionSettings": {
+                                    "allowDataTruncation": true,
+                                    "treatBooleanAsNumber": false
+                                }
+                            }
+                        },
+                        "inputs": [
+                            {
+                                "referenceName": "CsvDataset",
+                                "type": "DatasetReference"
+                            }
+                        ],
+                        "outputs": [
+                            {
+                                "referenceName": "AzureSqlTable",
+                                "type": "DatasetReference"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}
